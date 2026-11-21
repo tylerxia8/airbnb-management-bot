@@ -84,11 +84,6 @@ export function Playground() {
   const propertyName = (id: string) => state?.properties.find(property => property.id === id)?.name ?? id;
 
   return <main className="playground cleaning-dashboard">
-    <header className="playground-header">
-      <div><span className="badge">Sandbox</span><h1>Lucena Systems Playground</h1>
-        <p>Run a cleaning day with 12 fictional properties and 6 fictional cleaners.</p></div>
-    </header>
-    <p className="playground-boundary">Scheduling is available here. Maintenance and guest messaging are planned. All activity is simulated.</p>
     {error && <p role="alert" className="playground-error">{error}</p>}
     <p role="status" className="playground-status">{notice}</p>
     {!snapshot || !state ? <button className="playground-primary" type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox ready.")}>{busy ? "Opening…" : "Open my sandbox"}</button> : <>
