@@ -1,11 +1,12 @@
 """Fictional reservation fixtures and scheduling through the shared domain engine."""
 
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.adapters.reservations.mock import MockReservationProvider
-from app.domain.scheduling import Job, Shift, solve, validate
+from app.domain.scheduling import Job, Placed, Shift, SolveResult, Travel, solve, validate
 from app.domain.tasks import readiness_deadline, turnover_deadline
 
 EASTERN = ZoneInfo("America/New_York")
@@ -120,9 +121,26 @@ def jobs_for(state: dict[str, Any], day: str) -> list[Job]:
     return jobs
 
 
-def plan(state: dict[str, Any], day: str) -> dict[str, Any]:
+def plan(
+    state: dict[str, Any], day: str, *, fixed: dict[str, dict[str, Any]] | None = None, target: str | None = None
+) -> dict[str, Any]:
     jobs = jobs_for(state, day)
-    pins = state["days"][day]["pins"]
+    schedule = state["days"][day]
+    pins = schedule["pins"]
+    exclusions = schedule.get("canceled_cleaners", {})
+    if fixed is not None:
+        jobs = [
+            replace(
+                job,
+                locked_cleaner_id=fixed[job.task_id]["cleaner_id"],
+                locked_start=datetime.fromisoformat(fixed[job.task_id]["planned_start"]),
+                locked_end=datetime.fromisoformat(fixed[job.task_id]["planned_end"]),
+            )
+            if job.task_id in fixed
+            else job
+            for job in jobs
+            if job.task_id in fixed or job.task_id == target
+        ]
     # A pin limits eligibility for the job while leaving the solver free to choose its time.
     # The fixture has at most one departure per house per day.
     pins_by_place = {job.place: pins[job.task_id] for job in jobs if job.task_id in pins}
@@ -135,6 +153,7 @@ def plan(state: dict[str, Any], day: str) -> dict[str, Any]:
         if hours["available"]:
             places = frozenset(p for p in pins_by_place if pins_by_place[p] == cleaner_id)
             places |= areas.keys() & {j.place for j in jobs if j.place not in pins_by_place}
+            places -= {job.place for job in jobs if cleaner_id in exclusions.get(job.task_id, [])}
             shifts.append(
                 Shift(
                     cleaner_id,
@@ -153,6 +172,8 @@ def plan(state: dict[str, Any], day: str) -> dict[str, Any]:
         return 0 if origin == destination else (8 + 10 * abs(areas[origin] - areas[destination])) * 60
 
     result = solve(jobs, shifts, travel, time_limit_seconds=2)
+    if target and any(job_id == target for job_id, _ in result.uncovered):
+        result = try_open_route_gaps(result, next(job for job in jobs if job.task_id == target), jobs, shifts, travel)
     errors = sorted(set(validate(result, jobs, shifts, travel)))
     placed = {row.task_id: row for row in result.placed} if not errors else {}
     conflicts = [{"job": job, "code": code} for job, code in result.uncovered]
@@ -170,6 +191,7 @@ def plan(state: dict[str, Any], day: str) -> dict[str, Any]:
                 "release_at": job.release.isoformat(),
                 "deadline_at": job.deadline.isoformat(),
                 "duration_minutes": int(job.duration.total_seconds() / 60),
+                "cleaner_id": assignment.cleaner_id if assignment else None,
                 "cleaner_name": cleaner_names[assignment.cleaner_id] if assignment else None,
                 "planned_start": assignment.start.isoformat() if assignment else None,
                 "planned_end": assignment.end.isoformat() if assignment else None,
@@ -186,3 +208,39 @@ def plan(state: dict[str, Any], day: str) -> dict[str, Any]:
         "valid": not errors,
         "blocked": any(conflict["job"] in pins for conflict in conflicts),
     }
+
+
+def try_open_route_gaps(
+    baseline: SolveResult, target: Job, jobs: list[Job], shifts: list[Shift], travel: Travel
+) -> SolveResult:
+    """Try inserting into gaps before existing published jobs without moving them."""
+    for shift in shifts:
+        if target.place not in shift.eligible_places:
+            continue
+        route = sorted(
+            (row for row in baseline.placed if row.cleaner_id == shift.cleaner_id), key=lambda row: row.start
+        )
+        place, end = shift.origin, shift.start
+        for next_job in route:
+            before = travel(place, target.place)
+            after = travel(target.place, next_job.place)
+            if before is not None and after is not None:
+                start = max(target.release, end + timedelta(seconds=before))
+                finish = start + target.duration
+                if finish <= min(target.deadline, next_job.start - timedelta(seconds=after)):
+                    inserted = Placed(
+                        target.task_id, shift.cleaner_id, start, finish, timedelta(seconds=before), target.place
+                    )
+                    routed = tuple(
+                        replace(row, travel_before=timedelta(seconds=after)) if row == next_job else row
+                        for row in baseline.placed
+                    )
+                    proposal = replace(
+                        baseline,
+                        placed=(*routed, inserted),
+                        uncovered=tuple(item for item in baseline.uncovered if item[0] != target.task_id),
+                    )
+                    if not validate(proposal, jobs, shifts, travel):
+                        return proposal
+            place, end = next_job.place, next_job.end
+    return baseline

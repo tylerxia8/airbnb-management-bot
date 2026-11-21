@@ -25,6 +25,12 @@ test("host simulates a cleaning day in an isolated session", async ({page, brows
   await page.reload();
   await expect(page.getByRole("rowheader", {name: "Blue Test House"})).toBeVisible();
 
+  const recovery = page.getByRole("region", {name: "Cleaner cancellation recovery"});
+  await recovery.getByRole("button", {name: "Simulate cleaner cancellation"}).click();
+  await expect(recovery.getByRole("status")).toContainText("Waiting for acceptance.");
+  await recovery.getByRole("button", {name: "Simulate acceptance"}).click();
+  await expect(recovery.getByRole("status")).toContainText("accepted the replacement.");
+
   const separate = await browser.newContext();
   try {
     const visitor = await separate.newPage();

@@ -98,3 +98,42 @@ def test_origin_cookie_rate_limits_and_expiration(app: Any, monkeypatch: pytest.
         now += server.TTL
         assert mutate(client, 24, "reset").status_code == 401
         assert start(client)["revision"] == 0
+
+
+def test_cancel_and_recover_without_moving_other_jobs(app: Any) -> None:
+    with TestClient(app, base_url=ORIGIN) as client:
+        start(client)
+        initial = mutate(client, 0, "publish", day=DAY).json()["state"]["days"][DAY]["published"]["rows"]
+        job = initial[0]
+        canceled = mutate(client, 1, "cleaner_cancel", day=DAY, id=job["id"])
+        assert canceled.status_code == 200
+        day = canceled.json()["state"]["days"][DAY]
+        assert not day["published"]["rows"][0]["cleaner_name"]
+        assert day["recovery"]["status"] == "awaiting"
+        assert day["recovery"]["replacement"]["cleaner_name"] != job["cleaner_name"]
+        assert mutate(client, 2, "generate", day=DAY).status_code == 409
+        accepted = mutate(client, 2, "replacement_accept", day=DAY, id=job["id"]).json()["state"]["days"][DAY]
+        assert accepted["published"]["rows"][0]["acknowledged"]
+        for old, new in zip(initial[1:], accepted["published"]["rows"][1:], strict=True):
+            for key in ("cleaner_name", "planned_start", "planned_end"):
+                assert old[key] == new[key]
+
+
+def test_declined_replacements_leave_an_open_conflict(app: Any) -> None:
+    with TestClient(app, base_url=ORIGIN) as client:
+        start(client)
+        published = mutate(client, 0, "publish", day=DAY).json()["state"]["days"][DAY]["published"]
+        job = published["rows"][0]
+        response = mutate(client, 1, "cleaner_cancel", day=DAY, id=job["id"])
+        offered = {job["cleaner_id"]}
+        for revision in range(2, 8):
+            current = response.json()["state"]["days"][DAY]
+            replacement = current["recovery"]["replacement"]
+            if not replacement:
+                break
+            assert replacement["cleaner_id"] not in offered
+            offered.add(replacement["cleaner_id"])
+            response = mutate(client, revision, "replacement_decline", day=DAY, id=job["id"])
+        current = response.json()["state"]["days"][DAY]
+        assert current["recovery"]["status"] == "uncovered"
+        assert {"job": job["id"], "code": "CLEANER_CANCELED"} in current["published"]["conflicts"]

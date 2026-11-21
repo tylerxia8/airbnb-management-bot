@@ -10,6 +10,7 @@ const days = ["2026-11-10", "2026-11-11"] as const;
 type Day = typeof days[number];
 type Hours = {available: boolean; start: string; end: string};
 type Schedule = {rows: TaskRow[]; conflicts: {job: string; code: string}[]; valid: boolean; blocked: boolean};
+type Recovery = {job: string; property: string; original: string; status: "awaiting" | "accepted" | "uncovered"; replacement: TaskRow | null};
 type Snapshot = {
   revision: number;
   expires: number;
@@ -17,7 +18,7 @@ type Snapshot = {
     properties: {id: string; name: string; duration: number}[];
     cleaners: {id: string; name: string; availability: Record<Day, Hours>}[];
     reservations: {id: string; property_id: string; checkin: string; checkout: string; status: string}[];
-    days: Record<Day, {preview: Schedule | null; published: Schedule | null; stale: boolean; pins: Record<string, string>}>;
+    days: Record<Day, {preview: Schedule | null; published: Schedule | null; stale: boolean; pins: Record<string, string>; recovery?: Recovery}>;
   };
 };
 type Action = Record<string, string | boolean | number | null>;
@@ -26,6 +27,7 @@ const format = (value: string) => new Intl.DateTimeFormat("en-US", {
 }).format(new Date(value));
 const conflictText: Record<string, string> = {
   NO_CAPACITY: "No cleaner has enough available capacity.",
+  CLEANER_CANCELED: "Cleaner canceled. This job is open until a replacement accepts.",
   VALIDATION_FAILED: "The schedule failed its feasibility check.",
 };
 
@@ -80,6 +82,8 @@ export function Playground() {
 
   const state = snapshot?.state;
   const current = state?.days[day];
+  const recovery = current?.recovery;
+  const awaiting = recovery?.status === "awaiting";
   const schedule = current?.preview ?? current?.published;
   const propertyName = (id: string) => state?.properties.find(property => property.id === id)?.name ?? id;
 
@@ -106,16 +110,36 @@ export function Playground() {
         <legend className="visually-hidden">{tab}</legend>
         {tab === "Schedule" && <section aria-label="Simulated schedule">
           <div className="playground-actions">
-            <button type="button" onClick={() => void request({action: "generate", day}, "Preview generated.")}><Sparkles aria-hidden="true" /> Generate preview</button>
+            <button type="button" disabled={awaiting} onClick={() => void request({action: "generate", day}, "Preview generated.")}><Sparkles aria-hidden="true" /> Generate preview</button>
             <button className="playground-primary" type="button" disabled={!current?.preview?.valid || current.preview.blocked} onClick={() => void request({action: "publish", day}, "Simulated schedule published.")}><Send aria-hidden="true" /> Publish simulation</button>
             <strong>{current?.preview ? "Preview" : current?.stale ? "Published plan · changes pending" : current?.published ? "Published simulation" : "No schedule yet"}</strong>
           </div>
           {schedule && <><TaskList tasks={schedule.rows} />
+            {current?.published && !current.preview && !current.stale && <section aria-label="Cleaner cancellation recovery">
+              <h2>Cleaner cancellation</h2>
+              {recovery && <div className="playground-edit-grid"><div>
+                <p role="status">{recovery.original} canceled at {recovery.property}. {recovery.status === "uncovered"
+                  ? "No replacement could cover this job. Manager action needed."
+                  : recovery.replacement && (awaiting
+                    ? `${recovery.replacement.cleaner_name} can cover it. Waiting for acceptance.`
+                    : `${recovery.replacement.cleaner_name} accepted the replacement.`)}</p>
+                {awaiting && <div className="playground-actions">
+                  <button className="playground-primary" type="button" onClick={() => void request({action: "replacement_accept", day, id: recovery.job})}>Simulate acceptance</button>
+                  <button type="button" onClick={() => void request({action: "replacement_decline", day, id: recovery.job})}>Simulate decline</button>
+                </div>}
+              </div></div>}
+              {!awaiting && schedule.rows.some(row => row.cleaner_name) && <form className="playground-actions" onSubmit={event => save(event, form => ({action: "cleaner_cancel", day, id: String(form.get("job"))}), "")}>
+                <label>Published job <select name="job" required>
+                  {schedule.rows.filter(row => row.cleaner_name).map(row => <option key={row.id} value={row.id}>{row.property_name} · {row.cleaner_name}</option>)}
+                </select></label>
+                <button className="playground-danger" type="submit">Simulate cleaner cancellation</button>
+              </form>}
+            </section>}
             <h2>Conflicts</h2>
             {schedule.conflicts.length ? <ul>{schedule.conflicts.map(conflict => <li key={conflict.job}><strong>{schedule.rows.find(row => row.id === conflict.job)?.property_name}</strong> · {current?.pins[conflict.job] ? "Manual assignment cannot fit the current shift or turnover window." : conflictText[conflict.code] ?? conflict.code.toLowerCase().replaceAll("_", " ")}</li>)}</ul> : <p>No conflicts in this plan.</p>}
             <h2>Assign jobs</h2>
             {current?.stale && !current.preview && <p>Generate a fresh preview to assign jobs.</p>}
-            <div className="playground-edit-grid">{(!current?.stale || current.preview) && schedule.rows.map(row =>
+            <div className="playground-edit-grid">{!awaiting && (!current?.stale || current.preview) && schedule.rows.map(row =>
               <form key={`${snapshot.revision}-${row.id}`} onSubmit={event => save(event, form => {
                 const value = String(form.get("cleaner"));
                 return {action: "assign", day, id: row.id, cleaner_id: value || null};
