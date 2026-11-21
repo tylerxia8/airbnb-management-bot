@@ -35,6 +35,12 @@ const PUBLIC_PATHS = [
 ];
 
 async function workspaceAccess(request: NextRequest, requestHeaders: Headers) {
+  if (process.env.PLAYGROUND_ONLY === "1") {
+    const path = request.nextUrl.pathname;
+    if (path === "/" && process.env.PLAYGROUND_ORIGIN) return NextResponse.redirect(new URL("/playground", process.env.PLAYGROUND_ORIGIN));
+    if (path === "/playground" || PUBLIC_PATHS.includes(path)) return NextResponse.next({request: {headers: requestHeaders}});
+    return new NextResponse("Not found", {status: 404});
+  }
   if (PUBLIC_PATHS.includes(request.nextUrl.pathname)) return NextResponse.next({request: {headers: requestHeaders}});
   if (process.env.WORKSPACE_SIGNUP_ENABLED !== "true") return NextResponse.next({request: {headers: requestHeaders}});
   const origin = requestOrigin(request);

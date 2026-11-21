@@ -236,3 +236,7 @@ Windows verification may use `TEST_DATABASE_URL`, `TEST_MIGRATION_DATABASE_URL`,
 Later credentials/configuration: authorized Hospitable access or approved feed/import, Twilio account and registered sender, Google Maps key, managed auth issuer/audience, PostgreSQL, Redis, and cloud secret storage. Hospitable API eligibility is an unresolved launch dependency. No provider URLs, authentication schemes, or webhook payloads are asserted here.
 
 Production integrations and SMS dispatch remain disabled until credentials, manager policy approvals, consent/registration, and pilot gates pass. Bank transfers are outside the initial release. Do not merge the initial documentation PR automatically.
+
+## Lucena Systems Playground
+
+The public staging sandbox lets hosts try cleaner scheduling on a fictional portfolio. See [Playground verification and staging setup](infra/playground/README.md).

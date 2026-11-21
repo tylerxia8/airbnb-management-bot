@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link rel="preload" href="/fonts/Inter-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body>
-        <AppFrame workspaceSignup={workspaceSignupEnabled} connected={connected} demo={process.env.LOCAL_DEMO === "1"} sourceMode={workspaceMode}>{children}</AppFrame>
+        {process.env.PLAYGROUND_ONLY === "1" ? children : <AppFrame workspaceSignup={workspaceSignupEnabled} connected={connected} demo={process.env.LOCAL_DEMO === "1"} sourceMode={workspaceMode}>{children}</AppFrame>}
       </body>
     </html>
   );
