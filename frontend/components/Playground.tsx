@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { TaskList, type TaskRow } from "./OperationalDashboard";
 
 const days = ["2026-11-10", "2026-11-11"] as const;
@@ -30,11 +30,11 @@ export function Playground() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [day, setDay] = useState<Day>(days[0]);
   const [tab, setTab] = useState("Schedule");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  async function request(action?: Action, success = "") {
+  const load = useCallback(async (action?: Action, success = "", revision?: number) => {
     setBusy(true);
     setError("");
     setNotice("");
@@ -43,7 +43,7 @@ export function Playground() {
         method: "POST",
         ...(action && {
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({...action, revision: snapshot?.revision}),
+          body: JSON.stringify({...action, revision}),
         }),
       });
       if (!response.ok) {
@@ -58,6 +58,16 @@ export function Playground() {
     } finally {
       setBusy(false);
     }
+  }, []);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void Promise.resolve().then(() => load());
+  }, [load]);
+
+  function request(action?: Action, success = "") {
+    return load(action, success, snapshot?.revision);
   }
 
   function save(event: FormEvent<HTMLFormElement>, action: (form: FormData) => Action, message: string) {

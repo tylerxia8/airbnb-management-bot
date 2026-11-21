@@ -80,12 +80,16 @@ def seed() -> dict[str, Any]:
         }
         for index, name in enumerate(CLEANERS)
     ]
-    return {
+    state: dict[str, Any] = {
         "properties": properties,
         "reservations": reservations,
         "cleaners": cleaners,
         "days": {day: {"pins": {}, "preview": None, "published": None, "stale": False} for day in DAYS},
     }
+
+    for day in DAYS:
+        state["days"][day]["preview"] = plan(state, day)
+    return state
 
 
 def jobs_for(state: dict[str, Any], day: str) -> list[Job]:

@@ -6,7 +6,8 @@ test("host simulates a cleaning day in an isolated session", async ({page, brows
   await page.goto("/");
   await expect(page.getByRole("heading", {name: "Lucena Systems Playground"})).toBeVisible();
   await expect(page.getByRole("link", {name: /Book a Call/})).toHaveAttribute("href", /^https:\/\/calendly\.com\//);
-  await page.getByRole("button", {name: "Open my sandbox"}).click();
+  await expect(page.getByRole("rowheader", {name: "Willow Cottage"})).toBeVisible();
+  await expect(page.getByRole("button", {name: "Publish simulation"})).toBeEnabled();
   await page.getByRole("button", {name: "Properties", exact: true}).click();
   await expect(page.getByRole("textbox", {name: "Fictional property name"})).toHaveCount(12);
   await page.getByRole("textbox", {name: "Fictional property name"}).first().fill("Blue Test House");
@@ -22,14 +23,12 @@ test("host simulates a cleaning day in an isolated session", async ({page, brows
   await page.getByRole("button", {name: "Publish simulation"}).click();
   await expect(page.getByRole("status")).toHaveText("Simulated schedule published.");
   await page.reload();
-  await page.getByRole("button", {name: "Open my sandbox"}).click();
   await expect(page.getByRole("rowheader", {name: "Blue Test House"})).toBeVisible();
 
   const separate = await browser.newContext();
   try {
     const visitor = await separate.newPage();
     await visitor.goto("/playground");
-    await visitor.getByRole("button", {name: "Open my sandbox"}).click();
     await visitor.getByRole("button", {name: "Properties", exact: true}).click();
     await expect(visitor.getByRole("textbox", {name: "Fictional property name"}).first()).toHaveValue("Willow Cottage");
   } finally {
@@ -38,5 +37,5 @@ test("host simulates a cleaning day in an isolated session", async ({page, brows
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", {name: "Reset sandbox"}).click();
   await expect(page.getByRole("status")).toHaveText("Sandbox reset.");
-  await expect(page.getByText("No schedule yet")).toBeVisible();
+  await expect(page.getByRole("rowheader", {name: "Willow Cottage"})).toBeVisible();
 });

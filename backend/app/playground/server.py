@@ -208,7 +208,12 @@ def create_app(database: Path, origin: str, *, local: bool = False) -> FastAPI:
             if existing is not None:
                 limit(db, "resume", now // 60, 180)
                 limit(db, f"resume:{key}", now // 60, 24)
-                return snapshot(existing)
+                saved = snapshot(existing)
+                if saved["revision"] == 0 and all(item["preview"] is None for item in saved["state"]["days"].values()):
+                    state = seed()
+                    db.execute("UPDATE sessions SET state = ? WHERE id = ?", (json.dumps(state), key))
+                    saved["state"] = state
+                return saved
             db.execute("DELETE FROM sessions WHERE expires <= ?", (now,))
             db.execute("DELETE FROM limits WHERE bucket < ?", (now // 60 - 1,))
             # Public staging overwrites this header at its private reverse proxy.
