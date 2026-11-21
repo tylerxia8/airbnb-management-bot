@@ -10,7 +10,11 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - certificates:/data
-    depends_on: [web, sandbox]
+    depends_on:
+      web:
+        condition: service_healthy
+      sandbox:
+        condition: service_healthy
     networks: [public, private]
   web:
     build:
@@ -21,6 +25,12 @@ services:
       PLAYGROUND_ORIGIN: https://${PLAYGROUND_HOST:?Set the dedicated staging hostname}
       NO_PROXY: web,sandbox,localhost,127.0.0.1
     networks: [private]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
   sandbox:
     build:
       context: ../../backend
@@ -32,6 +42,12 @@ services:
     volumes:
       - sessions:/sandbox
     networks: [private]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
 networks:
   public:
   private:
