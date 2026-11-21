@@ -1,7 +1,10 @@
 "use client";
 
+import { ArrowUpRight, CalendarDays, Check, House, RefreshCw, RotateCcw, UsersRound, CalendarRange, Sparkles, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { TaskList, type TaskRow } from "./OperationalDashboard";
+
+const sections = {Schedule: CalendarDays, Properties: House, Cleaners: UsersRound, Reservations: CalendarRange};
 
 const days = ["2026-11-10", "2026-11-11"] as const;
 type Day = typeof days[number];
@@ -84,19 +87,19 @@ export function Playground() {
     <header className="playground-header">
       <div><span className="badge">Sandbox</span><h1>Lucena Systems Playground</h1>
         <p>Run a cleaning day with 12 fictional properties and 6 fictional cleaners.</p></div>
-      <a className="playground-call" href="https://calendly.com/tyler-lucenasystems/lucena-systems-airbnb-operations-discovery-call">Book a Call ↗</a>
+      <a className="playground-call" href="https://calendly.com/tyler-lucenasystems/lucena-systems-airbnb-operations-discovery-call">Book a Call <ArrowUpRight aria-hidden="true" /></a>
     </header>
     <p className="playground-boundary">Scheduling is available here. Maintenance and guest messaging are planned. All activity is simulated.</p>
     {error && <p role="alert" className="playground-error">{error}</p>}
     <p role="status" className="playground-status">{notice}</p>
-    {!snapshot || !state ? <button type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox ready.")}>{busy ? "Opening…" : "Open my sandbox"}</button> : <>
+    {!snapshot || !state ? <button className="playground-primary" type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox ready.")}>{busy ? "Opening…" : "Open my sandbox"}</button> : <>
       <div className="playground-toolbar">
-        <div role="group" aria-label="Sandbox workspace">
-          {["Schedule", "Properties", "Cleaners", "Reservations"].map(name => <button key={name} type="button" aria-pressed={tab === name} onClick={() => setTab(name)}>{name}</button>)}
+        <div className="playground-navigation" role="group" aria-label="Sandbox workspace">
+          {Object.entries(sections).map(([name, Icon]) => <button key={name} type="button" aria-pressed={tab === name} onClick={() => setTab(name)}><Icon aria-hidden="true" /> {name}</button>)}
         </div>
         <div>
-          <button type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox refreshed.")}>Refresh</button>
-          <button type="button" disabled={busy} onClick={() => {if (window.confirm("Restore the fictional starting data and erase your changes?")) void request({action: "reset"}, "Sandbox reset.");}}>Reset sandbox</button>
+          <button type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox refreshed.")}><RefreshCw aria-hidden="true" /> Refresh</button>
+          <button className="playground-danger" type="button" disabled={busy} onClick={() => {if (window.confirm("Restore the fictional starting data and erase your changes?")) void request({action: "reset"}, "Sandbox reset.");}}><RotateCcw aria-hidden="true" /> Reset sandbox</button>
         </div>
       </div>
       <p className="muted">Session expires at {format(new Date(snapshot.expires * 1000).toISOString())} ET. Changes are saved in this browser session.</p>
@@ -109,8 +112,8 @@ export function Playground() {
         <legend className="visually-hidden">{tab}</legend>
         {tab === "Schedule" && <section aria-label="Simulated schedule">
           <div className="playground-actions">
-            <button type="button" onClick={() => void request({action: "generate", day}, "Preview generated.")}>Generate preview</button>
-            <button type="button" disabled={!current?.preview?.valid || current.preview.blocked} onClick={() => void request({action: "publish", day}, "Simulated schedule published.")}>Publish simulation</button>
+            <button type="button" onClick={() => void request({action: "generate", day}, "Preview generated.")}><Sparkles aria-hidden="true" /> Generate preview</button>
+            <button className="playground-primary" type="button" disabled={!current?.preview?.valid || current.preview.blocked} onClick={() => void request({action: "publish", day}, "Simulated schedule published.")}><Send aria-hidden="true" /> Publish simulation</button>
             <strong>{current?.preview ? "Preview" : current?.stale ? "Published plan · changes pending" : current?.published ? "Published simulation" : "No schedule yet"}</strong>
           </div>
           {schedule && <><TaskList tasks={schedule.rows} />
@@ -134,7 +137,7 @@ export function Playground() {
           {state.properties.map(property => <form key={`${snapshot.revision}-${property.id}`} onSubmit={event => save(event, form => ({action: "property", id: property.id, name: String(form.get("name")), duration: Number(form.get("duration"))}), "Property saved.")}>
             <label>Fictional property name<input name="name" defaultValue={property.name} minLength={1} maxLength={48} required /></label>
             <label>Cleaning minutes<input name="duration" type="number" min={30} max={360} defaultValue={property.duration} required /></label>
-            <button type="submit">Save property</button>
+            <button className="playground-primary" type="submit"><Check aria-hidden="true" /> Save property</button>
           </form>)}
         </section>}
         {tab === "Cleaners" && <section className="playground-edit-grid" aria-label="Cleaner availability">
@@ -145,14 +148,14 @@ export function Playground() {
               <label className="playground-check"><input type="checkbox" name="available" defaultChecked={hours.available} /> Available</label>
               <label>Shift starts<input type="time" name="start" defaultValue={hours.start} required /></label>
               <label>Shift ends<input type="time" name="end" defaultValue={hours.end} required /></label>
-              <button type="submit">Save availability</button>
+              <button className="playground-primary" type="submit"><Check aria-hidden="true" /> Save availability</button>
             </form>;
           })}
         </section>}
         {tab === "Reservations" && <section className="cleaning-table-wrap" aria-label="Fictional reservations"><table className="cleaning-table">
           <thead><tr><th>Property</th><th>Check-in (ET)</th><th>Checkout (ET)</th><th>Status</th></tr></thead>
           <tbody>{state.reservations.map(stay => <tr key={stay.id}><th scope="row">{propertyName(stay.property_id)}</th><td>{format(stay.checkin)}</td><td>{format(stay.checkout)}</td><td>
-            {stay.status === "canceled" ? "Canceled" : <button type="button" onClick={() => {if (window.confirm("Cancel this fictional reservation?")) void request({action: "cancel", id: stay.id}, "Reservation canceled. Generate a fresh schedule.");}}>Simulate cancellation</button>}
+            {stay.status === "canceled" ? "Canceled" : <button className="playground-danger" type="button" onClick={() => {if (window.confirm("Cancel this fictional reservation?")) void request({action: "cancel", id: stay.id}, "Reservation canceled. Generate a fresh schedule.");}}>Simulate cancellation</button>}
           </td></tr>)}</tbody>
         </table></section>}
       </fieldset>
