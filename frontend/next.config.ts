@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  ...(process.env.PLAYGROUND_STANDALONE === "1" ? { output: "standalone" } : {}),
   poweredByHeader: false,
   async headers() {
     return [{source: "/(.*)", headers: [

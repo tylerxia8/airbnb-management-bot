@@ -1,0 +1,29 @@
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-Robots-Tag "noindex, nofollow"
+	}
+	handle /playground/api/* {
+		request_body {
+			max_size 2KB
+		}
+		reverse_proxy 127.0.0.1:8000 {
+			header_up X-Playground-Client {http.request.remote.host}
+		}
+	}
+	@playgroundWeb path / /playground /health /_next/static/* /fonts/* /brand/* /favicon.svg /favicon-32.png /favicon-16.png /manifest.webmanifest
+	handle @playgroundWeb {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
