@@ -1,5 +1,5 @@
 .playground { max-width: 1150px; margin: 0 auto; padding: clamp(18px, 4vw, 48px); }
-.playground-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; border-radius: 20px; padding: clamp(18px, 4vw, 36px); background: #133c34; color: #fff; }
+.playground-header { border-radius: 20px; padding: clamp(18px, 4vw, 36px); background: #133c34; color: #fff; }
 .playground-header h1 { margin-block: 10px; color: inherit; }
 .playground-header p { margin: 0; color: #d7eee5; }
 .playground-header .badge { background: #d8f2e7; color: #174d3e; }
@@ -17,8 +17,7 @@
 .playground-edit-grid label { display: grid; gap: 4px; }
 .playground-edit-grid .playground-check { display: flex; align-items: center; }
 
-.playground button,
-.playground .playground-call {
+.playground button {
   --button-bg: #fff;
   --button-ink: #19483d;
   --button-line: #becfc8;
@@ -43,21 +42,16 @@
   transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
 
-.playground button svg,
-.playground-call svg { width: 16px; height: 16px; flex: none; }
-.playground button:hover:not(:disabled),
-.playground .playground-call:hover {
+.playground button svg { width: 16px; height: 16px; flex: none; }
+.playground button:hover:not(:disabled) {
   border-color: var(--button-line);
   background: var(--button-hover);
   color: var(--button-ink);
   box-shadow: 0 3px 8px #153e3424;
 }
 
-.playground button:active:not(:disabled),
-.playground .playground-call:active { transform: translateY(1px); }
-.playground button:focus-visible,
-.playground .playground-call:focus-visible { outline: 3px solid #238262; outline-offset: 3px; }
-.playground .playground-call:focus-visible { outline-color: #b9f1dc; }
+.playground button:active:not(:disabled) { transform: translateY(1px); }
+.playground button:focus-visible { outline: 3px solid #238262; outline-offset: 3px; }
 .playground button:disabled {
   --button-bg: #edf2ef;
   --button-ink: #51665d;
@@ -75,12 +69,6 @@
   --button-hover: #104b3a;
 }
 
-.playground .playground-call {
-  --button-bg: #d8f2e7;
-  --button-ink: #174d3e;
-  --button-line: #d8f2e7;
-  --button-hover: #bfe9d8;
-}
 
 .playground button.playground-danger:not(:disabled) {
   --button-ink: #8b352e;
@@ -109,6 +97,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .playground button,
-  .playground .playground-call { transition: none; }
+  .playground button { transition: none; }
 }

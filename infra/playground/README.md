@@ -23,7 +23,7 @@ export PLAYGROUND_HOST=playground.your-staging-domain.example
 docker compose -f infra/playground/compose.yml up --build -d
 ```
 
-Verify `https://<PLAYGROUND_HOST>/playground` in two separate browser contexts. Confirm the Sandbox label, a simulated publication, isolation, and the Book a Call link. Verify the staging host rejects operational pages such as `/dashboard` and operational API calls. Do not mount operational volumes, use existing production domains, or attach this deployment to production networks. To stop staging, run `docker compose -f infra/playground/compose.yml down` on the staging host.
+Verify `https://<PLAYGROUND_HOST>/playground` in two separate browser contexts. Confirm the Sandbox label, a simulated publication, and session isolation. Verify the staging host rejects operational pages such as `/dashboard` and operational API calls. Do not mount operational volumes, use existing production domains, or attach this deployment to production networks. To stop staging, run `docker compose -f infra/playground/compose.yml down` on the staging host.
 
 ## Railway staging
 

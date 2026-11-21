@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CalendarDays, Check, House, RefreshCw, RotateCcw, UsersRound, CalendarRange, Sparkles, Send } from "lucide-react";
+import { CalendarDays, Check, House, RefreshCw, RotateCcw, UsersRound, CalendarRange, Sparkles, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { TaskList, type TaskRow } from "./OperationalDashboard";
 
@@ -87,7 +87,6 @@ export function Playground() {
     <header className="playground-header">
       <div><span className="badge">Sandbox</span><h1>Lucena Systems Playground</h1>
         <p>Run a cleaning day with 12 fictional properties and 6 fictional cleaners.</p></div>
-      <a className="playground-call" href="https://calendly.com/tyler-lucenasystems/lucena-systems-airbnb-operations-discovery-call">Book a Call <ArrowUpRight aria-hidden="true" /></a>
     </header>
     <p className="playground-boundary">Scheduling is available here. Maintenance and guest messaging are planned. All activity is simulated.</p>
     {error && <p role="alert" className="playground-error">{error}</p>}

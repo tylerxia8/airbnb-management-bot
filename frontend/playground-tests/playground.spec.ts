@@ -5,7 +5,7 @@ test("host simulates a cleaning day in an isolated session", async ({page, brows
   expect((await page.request.post("/api/payments")).status()).toBe(404);
   await page.goto("/");
   await expect(page.getByRole("heading", {name: "Lucena Systems Playground"})).toBeVisible();
-  await expect(page.getByRole("link", {name: /Book a Call/})).toHaveAttribute("href", /^https:\/\/calendly\.com\//);
+  await expect(page.getByRole("link", {name: /Book a Call/})).toHaveCount(0);
   await expect(page.getByRole("rowheader", {name: "Willow Cottage"})).toBeVisible();
   await expect(page.getByRole("button", {name: "Publish simulation"})).toBeEnabled();
   await page.getByRole("button", {name: "Properties", exact: true}).click();

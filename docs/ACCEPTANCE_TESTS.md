@@ -442,4 +442,4 @@ M8 theme presentation check: Wada 268 palette (olive #253122, sienna CTA #a56321
 - Two anonymous browser contexts receive independent fictional portfolios of 12 houses, six cleaners, and 24 stays. Refresh resumes the same session. Reset affects only its owner.
 - A host can edit a property and shift, cancel a fictional stay, generate a preview, and assign or reassign a job. A stale preview or a conflicting manual assignment cannot publish. Uncovered jobs remain visible.
 - Cross-origin mutations, expired sessions, unexpected guest-data fields, and excess requests are rejected. Operational routes are absent. Publishing a simulated plan succeeds with outbound sockets blocked.
-- The staging-only dashboard identifies the Sandbox, marks maintenance and guest messaging as planned, and provides the discovery-call link.
+- The staging-only dashboard identifies the Sandbox and marks maintenance and guest messaging as planned.
