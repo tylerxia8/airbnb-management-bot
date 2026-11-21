@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("host simulates a cleaning day in an isolated session", async ({page, browser}) => {
+  expect((await page.request.get("/dashboard")).status()).toBe(404);
+  expect((await page.request.post("/api/payments")).status()).toBe(404);
   await page.goto("/");
   await expect(page.getByRole("heading", {name: "Lucena Systems Playground"})).toBeVisible();
   await expect(page.getByRole("link", {name: /Book a Call/})).toHaveAttribute("href", /^https:\/\/calendly\.com\//);

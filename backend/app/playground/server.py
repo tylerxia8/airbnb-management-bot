@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from app.playground.scenario import DAYS, jobs_for, plan, seed
 
@@ -202,10 +203,12 @@ def create_app(database: Path, origin: str, *, local: bool = False) -> FastAPI:
         now = int(time.time())
         with closing(connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
-            try:
-                return snapshot(load(db, session_id(request), now))
-            except HTTPException:
-                pass
+            key = session_id(request)
+            existing = db.execute("SELECT * FROM sessions WHERE id = ? AND expires > ?", (key, now)).fetchone()
+            if existing is not None:
+                limit(db, "resume", now // 60, 180)
+                limit(db, f"resume:{key}", now // 60, 24)
+                return snapshot(existing)
             db.execute("DELETE FROM sessions WHERE expires <= ?", (now,))
             db.execute("DELETE FROM limits WHERE bucket < ?", (now // 60 - 1,))
             # Public staging overwrites this header at its private reverse proxy.
@@ -240,8 +243,6 @@ def create_app(database: Path, origin: str, *, local: bool = False) -> FastAPI:
             op = mutation.validate_json(body)
         except ValidationError as exc:
             raise HTTPException(422, "Invalid sandbox action.") from exc
-        from starlette.concurrency import run_in_threadpool
-
         return await run_in_threadpool(change, request, op)
 
     def change(request: Request, op: Operation) -> dict[str, Any]:
@@ -251,8 +252,8 @@ def create_app(database: Path, origin: str, *, local: bool = False) -> FastAPI:
             row = load(db, key, now)
             limit(db, "write", now // 60, 180)
             limit(db, key, now // 60, 24)
-            if row["revision"] != op.revision:
-                raise HTTPException(409, "Sandbox changed in another tab. Reload before continuing.")
+        if row["revision"] != op.revision:
+            raise HTTPException(409, "Sandbox changed in another tab. Reload before continuing.")
         state = apply(json.loads(row["state"]), op)
         with closing(connect()) as db, db:
             result = db.execute(
