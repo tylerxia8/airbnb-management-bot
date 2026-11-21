@@ -1,0 +1,38 @@
+name: lucena-playground-staging
+services:
+  edge:
+    image: caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
+    restart: unless-stopped
+    environment:
+      PLAYGROUND_HOST: ${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+    depends_on: [web, sandbox]
+    networks: [public, private]
+  web:
+    build:
+      context: ../../frontend
+      dockerfile: ../infra/playground/frontend.Dockerfile
+    restart: unless-stopped
+    environment:
+      PLAYGROUND_ORIGIN: https://${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+    networks: [private]
+  sandbox:
+    build:
+      context: ../../backend
+      dockerfile: ../infra/playground/backend.Dockerfile
+    restart: unless-stopped
+    environment:
+      PLAYGROUND_ORIGIN: https://${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+    volumes:
+      - sessions:/sandbox
+    networks: [private]
+networks:
+  public:
+  private:
+    internal: true
+volumes:
+  certificates:
+  sessions:

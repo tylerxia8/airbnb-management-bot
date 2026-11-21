@@ -205,3 +205,32 @@ jobs:
         run: |
           npm ci --fetch-timeout=30000 --fetch-retries=2
           npm audit --omit=dev --fetch-timeout=30000 --fetch-retries=2
+
+  playground:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install and test sandbox API
+        working-directory: backend
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          ~/.local/bin/uv sync --frozen
+          ~/.local/bin/uv run pytest playground_tests
+      - name: Build and test sandbox dashboard
+        working-directory: frontend
+        env:
+          PLAYGROUND_ONLY: "1"
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+          PLAYGROUND_TEST_DB="$(mktemp)" npx playwright test --config playground.playwright.config.ts

@@ -1,0 +1,20 @@
+{$PLAYGROUND_HOST} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-Robots-Tag "noindex, nofollow"
+	}
+	handle /playground/api/* {
+		request_body {
+			max_size 2KB
+		}
+		reverse_proxy sandbox:8000 {
+			header_up X-Playground-Client {http.request.remote.host}
+		}
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

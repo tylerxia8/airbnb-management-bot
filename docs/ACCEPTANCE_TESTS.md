@@ -436,3 +436,10 @@ messages. Stale edits/previews fail and repeat requests are idempotent. Coverage
 test_cleaner_removal.py, remove-cleaner.spec.ts and scheduling/SMS regressions.
 
 M8 theme presentation check: Wada 268 palette (olive #253122, sienna CTA #a56321, mizuiro #bce4e5, umenezu #b59392, paper #f7f6f2) replaces the retired rose/scarlet theme. The header top border and brand-symbol use olive; CTA buttons use --cta #a56321 with white text; navigation selection uses --cta border; focus-visible uses --focus (olive light, mizuiro dark) at 3px. Inspect desktop/mobile dashboard and cleaner setup, including selected navigation, focus, tables and exception feedback. Normal text on brand backgrounds must retain at least 4.5:1 contrast (ink-on-paper 12.601:1, cta-text-on-cta 4.766:1). No rose hex (#e54a6f/#e76c8f) or old --primary (#c5222e) values remain in frontend/. Automated regression: test_visual_tokens.py verifies no forbidden hex appears in frontend/**/*.{css,tsx}.
+
+## Public scheduling playground
+
+- Two anonymous browser contexts receive independent fictional portfolios of 12 houses, six cleaners, and 24 stays. Refresh resumes the same session. Reset affects only its owner.
+- A host can edit a property and shift, cancel a fictional stay, generate a preview, and assign or reassign a job. A stale preview or a conflicting manual assignment cannot publish. Uncovered jobs remain visible.
+- Cross-origin mutations, expired sessions, unexpected guest-data fields, and excess requests are rejected. Operational routes are absent. Publishing a simulated plan succeeds with outbound sockets blocked.
+- The staging-only dashboard identifies the Sandbox, marks maintenance and guest messaging as planned, and provides the discovery-call link.

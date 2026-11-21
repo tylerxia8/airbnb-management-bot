@@ -1,0 +1,20 @@
+.playground { max-width: 1150px; margin: 0 auto; padding: clamp(18px, 4vw, 48px); }
+.playground-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; border-radius: 20px; padding: clamp(18px, 4vw, 36px); background: #133c34; color: #fff; }
+.playground-header h1 { margin-block: 10px; color: inherit; }
+.playground-header p { margin: 0; color: #d7eee5; }
+.playground-header .badge { background: #d8f2e7; color: #174d3e; }
+.playground-call { color: #fff; border: 1px solid #a3d0be; padding: 10px 16px; border-radius: 8px; }
+.playground-boundary { margin-block: 18px; }
+.playground-toolbar, .playground-toolbar > div, .playground-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.playground-toolbar { justify-content: space-between; }
+.playground-toolbar button[aria-pressed=true] { background: #17634d; color: #fff; }
+.playground-status:empty { display: none; }
+.playground-error { color: #8e231e; }
+.playground-date { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-block: 16px; }
+.playground-content { border: 0; margin: 0; padding: 0; min-width: 0; }
+.playground-actions { margin-bottom: 18px; }
+.playground-edit-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); }
+.playground-edit-grid form { background: #fff; border: 1px solid #cddbd6; border-radius: 12px; padding: 16px; display: grid; align-content: start; gap: 10px; }
+.playground-edit-grid h2 { margin: 0; font-size: 1rem; }
+.playground-edit-grid label { display: grid; gap: 4px; }
+.playground-edit-grid .playground-check { display: flex; align-items: center; }
