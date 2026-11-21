@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       PLAYGROUND_HOST: ${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+      NO_PROXY: web,sandbox,localhost,127.0.0.1
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -18,6 +19,7 @@ services:
     restart: unless-stopped
     environment:
       PLAYGROUND_ORIGIN: https://${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+      NO_PROXY: web,sandbox,localhost,127.0.0.1
     networks: [private]
   sandbox:
     build:
@@ -26,6 +28,7 @@ services:
     restart: unless-stopped
     environment:
       PLAYGROUND_ORIGIN: https://${PLAYGROUND_HOST:?Set the dedicated staging hostname}
+      NO_PROXY: web,sandbox,localhost,127.0.0.1
     volumes:
       - sessions:/sandbox
     networks: [private]
