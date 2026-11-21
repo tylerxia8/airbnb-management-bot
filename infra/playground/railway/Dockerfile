@@ -28,5 +28,6 @@ COPY --chown=10001:10001 --from=web /web/.next/standalone /web
 COPY --chown=10001:10001 --from=web /web/.next/static /web/.next/static
 COPY --chown=10001:10001 --from=web /web/public /web/public
 COPY --chmod=644 infra/playground/railway/Caddyfile infra/playground/railway/start.sh /opt/playground/
+RUN chmod 755 /opt/playground
 ENV PLAYGROUND_ONLY=1 NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
 CMD ["bash", "/opt/playground/start.sh"]
