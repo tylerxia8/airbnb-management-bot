@@ -38,7 +38,7 @@ test("manager reports a cleaner cancellation and sees the open coverage offer", 
     today: [released ? {...job, status: "ready", cleaner_name: null,
       cleaner_recovery: {status: "awaiting", respond_by: "2026-11-11T16:00:00Z"}} :
       {...job, status: "assigned", cleaner_name: "Alex Demo", can_release_assignment: true, assignment_id: "assignment", assignment_version: 4}],
-    exceptions: [], availability: {}, assignment_counts: {}, ack_counts: {acknowledged: 0, awaiting: 0}, sync_health: {},
+    exceptions: [], availability: {}, assignment_counts: {}, ack_counts: {acknowledged: 0, awaiting: 0}, sync_health: {}, sms_delivery_counts: {},
   }}));
   await page.route("**/api/assignments/assignment/release", async route => {
     expect(route.request().method()).toBe("POST");
