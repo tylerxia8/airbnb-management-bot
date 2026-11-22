@@ -677,3 +677,15 @@ select[multiple] option:checked { background: var(--surface-mist); color: var(--
 .empty-state-illustration { max-width: 100%; height: auto; }
 .empty-state-title { margin: 0; font-size: 17px; color: var(--ink); }
 .empty-state-description { margin: 0; font-size: 13px; color: var(--muted); max-width: 320px; }
+
+.skip-link {
+  position: fixed;
+  inset: 8px auto auto 8px;
+  z-index: 100;
+  transform: translateY(calc(-100% - 16px));
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.skip-link:focus { transform: none; }

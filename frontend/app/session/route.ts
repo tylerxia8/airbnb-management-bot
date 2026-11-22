@@ -1,15 +1,18 @@
+import { requestOrigin } from "../../lib/request-boundary";
 import { readRequestBody } from "../../lib/request-body";
 import { sessionTokenCookie, sessionRoleCookie } from "../../lib/session";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { readFile } from "node:fs/promises";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (process.env.WORKSPACE_SIGNUP_ENABLED === "true") return NextResponse.json({error: {message: "Use manager sign-in."}}, {status: 403});
   const liveReadOnly = process.env.HOSPITABLE_READ_ONLY === "true";
-  if (liveReadOnly && !["localhost", "127.0.0.1"].includes(new URL(`http://${request.headers.get("host")}`).hostname)) {
+  const origin = requestOrigin(request);
+  if (!origin || !["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) {
     return NextResponse.json({ error: { message: "Local sign-in required." } }, { status: 403 });
   }
-  if (request.headers.get("origin") && request.headers.get("origin") !== `${new URL(request.url).protocol}//${request.headers.get("host")}`) {
+  const suppliedOrigin = request.headers.get("origin");
+  if (suppliedOrigin && suppliedOrigin !== origin) {
     return NextResponse.json({ error: { message: "Same-origin sign-in required." } }, { status: 403 });
   }
   const content = await readRequestBody(request, 32 * 1024);

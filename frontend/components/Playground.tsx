@@ -84,6 +84,7 @@ export function Playground() {
   const propertyName = (id: string) => state?.properties.find(property => property.id === id)?.name ?? id;
 
   return <main className="playground cleaning-dashboard">
+    <h1 className="visually-hidden">Cleaning schedule playground</h1>
     {error && <p role="alert" className="playground-error">{error}</p>}
     <p role="status" className="playground-status">{notice}</p>
     {!snapshot || !state ? <button className="playground-primary" type="button" disabled={busy} onClick={() => void request(undefined, "Sandbox ready.")}>{busy ? "Opening…" : "Open my sandbox"}</button> : <>
