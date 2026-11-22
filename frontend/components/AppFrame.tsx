@@ -49,6 +49,7 @@ export function AppFrame({ children, demo = false, connected = false, sourceMode
   if (pathname === "/onboarding" || pathname === "/cleaner" || pathname === "/signup" || pathname === "/login") return <>{children}</>;
 
   if (workspaceSignup) return <>
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="app-header"><Link href="/dashboard" className="brand"><Image src="/brand/turnover-mark.svg" alt="" width={42} height={42} className="brand-symbol" aria-hidden="true" /><span className="brand-wordmark">Turnover<small>Cleaning coordination</small></span></Link>{connected ? <div className="account-actions"><Link href="/security" aria-current={pathname === "/security" ? "page" : undefined}>Security</Link><button type="button" disabled={busy} onClick={async () => {
       setBusy(true); setMessage("");
       try {
@@ -59,12 +60,13 @@ export function AppFrame({ children, demo = false, connected = false, sourceMode
     }}>Sign out</button></div> : <Link href={pathname === "/login" ? "/signup" : "/login"}>{pathname === "/login" ? "Create account" : "Sign in"}</Link>}</header>
     {connected && pathname !== "/signup" && pathname !== "/login" ? <nav aria-label="Primary">{NAV_LINKS.map(({ label, href, icon: Icon }) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}><Icon size={16} strokeWidth={2} aria-hidden="true" />{label}</Link>)}</nav> : null}
     {sessionExpired ? <p role="alert">Your session expired. <Link href="/login">Sign in to continue</Link>.</p> : null}
-    {message ? <p role="alert">{message}</p> : null}{children}
+    {message ? <p role="alert">{message}</p> : null}<div id="main-content" tabIndex={-1}>{children}</div>
   </>;
 
   return (
     <>
-      <header className="app-header"><Link href="/" className="brand" aria-label="Turnover home"><Image src="/brand/turnover-mark.svg" alt="" width={42} height={42} className="brand-symbol" aria-hidden="true" /><span className="brand-wordmark">Turnover<small>Cleaning coordination</small></span></Link>{!liveReadOnly ? <div className="app-header-meta"><span className="mode-pill"><span className="mode-dot" aria-hidden="true" />{demo ? "Synthetic demo · Nov 10, 2026 · 1 PM ET" : "Mock workspace"}</span></div> : null}</header>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <header className="app-header"><Link href="/" className="brand"><Image src="/brand/turnover-mark.svg" alt="" width={42} height={42} className="brand-symbol" aria-hidden="true" /><span className="brand-wordmark">Turnover<small>Cleaning coordination</small></span></Link>{!liveReadOnly ? <div className="app-header-meta"><span className="mode-pill"><span className="mode-dot" aria-hidden="true" />{demo ? "Synthetic demo · Nov 10, 2026 · 1 PM ET" : "Mock workspace"}</span></div> : null}</header>
       {liveReadOnly ? null : <ShellBanner />}
       <nav aria-label="Primary">
         {NAV_LINKS.map(({ label, href, icon: Icon }) => (
@@ -117,7 +119,7 @@ export function AppFrame({ children, demo = false, connected = false, sourceMode
       </form>
       </details> : null}
       {message ? <p role="alert">{message}</p> : null}
-      {children}
+      <div id="main-content" tabIndex={-1}>{children}</div>
       <footer>Turnover · America/New_York · {liveReadOnly ? "Read-only Hospitable import · No upstream changes" : "Synthetic data and mock integrations"}</footer>
     </>
   );

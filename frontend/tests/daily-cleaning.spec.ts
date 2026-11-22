@@ -13,6 +13,10 @@ test("daily board shows deadlines, cleaner responsibility and explicit cleaning 
     exceptions: [], sync_health: {stale: false, publication_blocked: false}, sms_delivery_counts: {}, pending_deadline_count: 0, uncovered_count: 0, late_count: 1, dispatch_enabled: false,
   }}));
   await page.goto("/dashboard");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", {name: "Skip to main content"})).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
   await page.waitForSelector("table", {timeout: 10000});
   const todaySection = page.locator("section.today-cleaning-board");
   await expect(todaySection).toBeVisible({timeout: 10000});
