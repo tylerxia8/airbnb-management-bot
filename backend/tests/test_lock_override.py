@@ -1377,3 +1377,36 @@ def test_override_becomes_new_first_job(client: TestClient) -> None:
         headers={**_headers(MANAGER, "override-new-first"), "If-Match": f'"{pb_version}"'},
     )
     assert response.status_code == 200, f"Expected success but got {response.text}"
+
+
+def test_manager_releases_assignment_for_cleaner_recovery(client: TestClient) -> None:
+    day = "2026-11-10"
+    _approve(client)
+    _sync(client, _turnover("R-A", "P-A", day), "sync-release")
+    cleaner = _cleaner(client, name="Cleaner A", phone="+15555551008", properties=["P-A"], key="c-release")
+    set_travel_overrides({("synthetic:origin-a", "P-A"): 60})
+    _available(client, cleaner, day, "synthetic:origin-a", key="avail-release")
+    _publish(client, _preview(client, day, "preview-release"), "publish-release")
+
+    path = f"/v1/dashboard?service_date={day}"
+    assigned = next(
+        row for row in client.get(path, headers=_headers(MANAGER, "read")).json()["today"] if row["assignment_id"]
+    )
+    assert assigned["can_release_assignment"]
+    release = f"/v1/assignments/{assigned['assignment_id']}/release"
+    version = f'"{assigned["assignment_version"]}"'
+    denied = client.post(release, headers={**_headers(VIEWER, "deny-release", ("viewer",)), "If-Match": version})
+    assert denied.status_code == 403
+    headers = {**_headers(MANAGER, "release"), "If-Match": version}
+    result = client.post(release, headers=headers)
+    assert result.status_code == 200, result.text
+    assert client.post(release, headers=headers).json() == result.json()
+    task = next(
+        row
+        for row in client.get(path, headers=_headers(MANAGER, "read")).json()["today"]
+        if row["id"] == assigned["id"]
+    )
+    assert task["assignment_id"] is None
+    assert not task["can_release_assignment"]
+    assert task["cleaner_recovery"]["status"] == "awaiting"
+    assert _rows("SELECT status FROM cleaning_offers") == [("open",)]

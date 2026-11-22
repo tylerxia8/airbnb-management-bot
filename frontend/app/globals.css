@@ -677,3 +677,6 @@ select[multiple] option:checked { background: var(--surface-mist); color: var(--
 .empty-state-illustration { max-width: 100%; height: auto; }
 .empty-state-title { margin: 0; font-size: 17px; color: var(--ink); }
 .empty-state-description { margin: 0; font-size: 13px; color: var(--muted); max-width: 320px; }
+
+.cleaner-release-action { margin-top: 8px; }
+.cleaner-release-action button { margin: 4px 0 0; padding: 6px 9px; font-size: .8rem; }

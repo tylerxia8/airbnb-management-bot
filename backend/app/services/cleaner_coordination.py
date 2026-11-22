@@ -682,6 +682,27 @@ def assignment_action(
         return {"status": "completed", "assignment_id": str(assignment.id)}
     if action != "punt":
         raise AppError("invalid_action", "Choose an available cleaner action.", 422)
+    return _release_assignment(session, clock, assignment, task, actor=f"cleaner:{cleaner.id}", actor_type="cleaner")
+
+
+def manager_release_assignment(
+    session: Session, clock: Clock, assignment_id: uuid.UUID, expected_version: int, actor: str
+) -> dict[str, object]:
+    assignment = session.scalar(select(Assignment).where(Assignment.id == assignment_id).with_for_update())
+    if assignment is None:
+        raise AppError("assignment_unavailable", "This assignment was not found.", 404)
+    if assignment.version != expected_version or assignment.status not in {"published", "acknowledged"}:
+        raise AppError("stale_version", "This assignment changed. Refresh the dashboard.", 409)
+    task = session.scalar(select(CleaningTask).where(CleaningTask.id == assignment.task_id).with_for_update())
+    if task is None or task.status != "assigned":
+        raise AppError("assignment_changed", "The cleaning job needs manager review.", 409)
+    return _release_assignment(session, clock, assignment, task, actor=actor, actor_type="operator")
+
+
+def _release_assignment(
+    session: Session, clock: Clock, assignment: Assignment, task: CleaningTask, *, actor: str, actor_type: str
+) -> dict[str, object]:
+    now = clock.now()
     if assignment.is_locked or assignment.planned_start <= now:
         raise AppError("punt_unavailable", "Started or manager-locked jobs need manager help to reassign.", 409)
     assignment.status = "canceled"
@@ -693,7 +714,7 @@ def assignment_action(
     run = session.get(ScheduleRun, assignment.schedule_run_id)
     if run is None:
         raise RuntimeError("Assignment schedule run is missing.")
-    _new_version(session, clock, cleaner.id, run)
+    _new_version(session, clock, assignment.cleaner_id, run)
     for previous_offer in session.scalars(
         select(CleaningOffer)
         .where(
@@ -707,30 +728,41 @@ def assignment_action(
         previous_offer.updated_at = now
         _resolve_offer_alert(session, clock, previous_offer)
     session.flush()
+    latest_start = effective_deadline(task.release_at, task.deadline_at, task.manager_target_at) - timedelta(
+        minutes=task.duration_minutes or assignment.duration_minutes
+    )
+    expires_at = max(now, min(now + timedelta(hours=2), latest_start))
     offer = CleaningOffer(
         id=uuid.uuid4(),
         created_at=now,
         updated_at=now,
         version=1,
         task_id=task.id,
-        original_cleaner_id=cleaner.id,
+        original_cleaner_id=assignment.cleaner_id,
         service_date=assignment.service_date,
-        status="open",
+        status="expired" if expires_at <= now else "open",
         opened_at=now,
-        expires_at=now + timedelta(minutes=120),
+        expires_at=expires_at,
         claimed_by_cleaner_id=None,
         claimed_assignment_id=None,
     )
     session.add(offer)
     _advance_day(session, clock, assignment.service_date)
-    _audit(
+    write_audit(
         session,
-        clock,
-        cleaner,
-        "assignment.punted",
-        assignment.id,
-        {"offer_id": str(offer.id), "response_minutes": 120},
+        clock=clock,
+        actor_type=actor_type,
+        actor_subject=actor,
+        action="assignment.punted",
+        entity_type="assignment",
+        entity_id=assignment.id,
+        correlation_id=assignment.id,
+        reason=None,
+        redacted_changes={"offer_id": str(offer.id), "expires_at": expires_at.isoformat()},
+        request_id=None,
     )
+    if offer.status == "expired":
+        _alert_unclaimed_offer(session, clock, offer, task)
     session.flush()
     return {"status": "punted", "assignment_id": str(assignment.id), "offer_id": str(offer.id)}
 
@@ -985,22 +1017,26 @@ def process_offer_deadlines(session: Session, settings: Settings, clock: Clock) 
             offer.status = "expired"
             offer.version += 1
             offer.updated_at = clock.now()
-            prop = session.get(Property, task.property_id)
-            _open_exception(
-                session,
-                clock=clock,
-                code="CLEANING_UNCLAIMED",
-                dedupe_key=f"cleaner-offer-unclaimed:{offer.id}",
-                sync_run_id=None,
-                details={
-                    "offer_id": str(offer.id),
-                    "task_id": str(task.id),
-                    "property_name": None if prop is None else prop.name,
-                    "service_date": offer.service_date.isoformat(),
-                    "response_minutes": 120,
-                },
-                severity="warning",
-            )
+            _alert_unclaimed_offer(session, clock, offer, task)
             alerted += 1
     session.flush()
     return alerted
+
+
+def _alert_unclaimed_offer(session: Session, clock: Clock, offer: CleaningOffer, task: CleaningTask) -> None:
+    prop = session.get(Property, task.property_id)
+    _open_exception(
+        session,
+        clock=clock,
+        code="CLEANING_UNCLAIMED",
+        dedupe_key=f"cleaner-offer-unclaimed:{offer.id}",
+        sync_run_id=None,
+        details={
+            "offer_id": str(offer.id),
+            "task_id": str(task.id),
+            "property_name": None if prop is None else prop.name,
+            "service_date": offer.service_date.isoformat(),
+            "response_minutes": int((offer.expires_at - offer.opened_at).total_seconds() / 60),
+        },
+        severity="warning",
+    )

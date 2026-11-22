@@ -443,3 +443,7 @@ M8 theme presentation check: Wada 268 palette (olive #253122, sienna CTA #a56321
 - A host can edit a property and shift, cancel a fictional stay, generate a preview, and assign or reassign a job. A stale preview or a conflicting manual assignment cannot publish. Uncovered jobs remain visible.
 - Cross-origin mutations, expired sessions, unexpected guest-data fields, and excess requests are rejected. Operational routes are absent. Publishing a simulated plan succeeds with outbound sockets blocked.
 - The staging-only dashboard opens on the scheduling controls and labels publication as a simulation.
+
+### Cleaner cancellation on the manager dashboard
+
+An authenticated manager can report a cancellation for a future, unlocked assignment. The job becomes unassigned and appears as Awaiting cover. A cleaner accepting the offer through the private portal must pass the existing route and schedule feasibility checks before assignment. The manager sees Needs cover when the response window ends. Repeating the same request does not create a second offer. Viewer access, started work, locked assignments, and stale revisions cannot release an assignment.

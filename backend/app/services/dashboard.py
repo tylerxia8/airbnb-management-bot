@@ -16,6 +16,7 @@ from app.domain.tasks import effective_deadline
 from app.models import (
     Assignment,
     Cleaner,
+    CleaningOffer,
     CleaningTask,
     EmailDelivery,
     OperationalException,
@@ -193,7 +194,20 @@ def build_dashboard(
         travel_from[assignment.id] = previous.get(key, origin)
         previous[key] = task_properties.get(assignment.task_id, "Previous house")
 
-    def summary(task: CleaningTask) -> dict[str, object]:
+    recovery = {
+        (offer.task_id, offer.service_date): offer
+        for offer in session.scalars(
+            select(CleaningOffer).where(
+                CleaningOffer.status.in_(("open", "expired")),
+                CleaningOffer.service_date.in_((service_date, tomorrow)),
+            )
+        )
+    }
+    manager_can_release = bool({"owner", "manager"}.intersection(principal.roles)) and (
+        not settings.hospitable_read_only or settings.local_scheduling_enabled
+    )
+
+    def summary(task: CleaningTask, day: date = service_date) -> dict[str, object]:
         body = _task_summary(task)
         reservation = reservations.get(task.source_reservation_id)
         body["can_confirm_early_checkout"] = (
@@ -214,6 +228,23 @@ def build_dashboard(
         body["assignment_id"] = None if assignment is None else str(assignment.id)
         body["assignment_version"] = None if assignment is None else assignment.version
         body["assignment_status"] = None if assignment is None else assignment.status
+        body["can_release_assignment"] = bool(
+            manager_can_release
+            and assignment is not None
+            and assignment.status in {"published", "acknowledged"}
+            and not assignment.is_locked
+            and assignment.planned_start > now
+            and task.status == "assigned"
+        )
+        offer = recovery.get((task.id, day)) if assignment is None else None
+        body["cleaner_recovery"] = (
+            None
+            if offer is None
+            else {
+                "status": "awaiting" if offer.status == "open" and offer.expires_at > now else "needs_review",
+                "respond_by": offer.expires_at.isoformat(),
+            }
+        )
         body["is_locked"] = assignment is not None and assignment.is_locked
         body["lock_reason"] = None if assignment is None else assignment.lock_reason
         body["locked_by"] = None if assignment is None else assignment.locked_by
@@ -291,7 +322,9 @@ def build_dashboard(
         "service_date": service_date.isoformat(),
         "tomorrow_date": tomorrow.isoformat(),
         "today": [summary(task) for task in sorted(today_tasks, key=lambda row: (row.release_at, str(row.id)))],
-        "tomorrow": [summary(task) for task in sorted(tomorrow_tasks, key=lambda row: (row.release_at, str(row.id)))],
+        "tomorrow": [
+            summary(task, tomorrow) for task in sorted(tomorrow_tasks, key=lambda row: (row.release_at, str(row.id)))
+        ],
         "overdue": [
             summary(task)
             for task in sorted(tasks, key=lambda row: (row.release_at, str(row.id)))

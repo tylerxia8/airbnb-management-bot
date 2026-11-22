@@ -52,7 +52,7 @@ const copy = {
     "Mark done": "Mark done",
     "Cannot clean this house": "Cannot clean this house",
     "Release this house?": "Release this house?",
-    "Other cleaners have two hours to take it before your manager is alerted.": "Other cleaners have two hours to take it before your manager is alerted.",
+    "Other cleaners can claim this job. Your manager is alerted if nobody takes it in time.": "Other cleaners can claim this job. Your manager is alerted if nobody takes it in time.",
     "Release house": "Release house",
     "Keep assignment": "Keep assignment",
     "Available houses": "Available houses",
@@ -106,7 +106,7 @@ const copy = {
     "Mark done": "Marcar como terminada",
     "Cannot clean this house": "No puedo limpiar esta casa",
     "Release this house?": "¿Dejar esta casa?",
-    "Other cleaners have two hours to take it before your manager is alerted.": "Los demás tienen dos horas para aceptar la casa antes de que se avise a tu responsable.",
+    "Other cleaners can claim this job. Your manager is alerted if nobody takes it in time.": "Otros profesionales pueden aceptar este trabajo. Si nadie lo acepta a tiempo, se avisará a tu responsable.",
     "Release house": "Dejar la casa",
     "Keep assignment": "Mantener tarea",
     "Available houses": "Casas disponibles",
@@ -160,7 +160,7 @@ const copy = {
     "Mark done": "Marcar como concluída",
     "Cannot clean this house": "Não posso limpar esta casa",
     "Release this house?": "Liberar esta casa?",
-    "Other cleaners have two hours to take it before your manager is alerted.": "Os outros profissionais têm duas horas para aceitar a casa antes de seu gerente ser avisado.",
+    "Other cleaners can claim this job. Your manager is alerted if nobody takes it in time.": "Outros profissionais podem aceitar este trabalho. Se ninguém aceitar a tempo, seu gerente será avisado.",
     "Release house": "Liberar casa",
     "Keep assignment": "Manter tarefa",
     "Available houses": "Casas disponíveis",
@@ -366,7 +366,7 @@ export function CleanerPortal({token}: {token: string}) {
         <div className="cleaner-job-top"><span>{day(job.service_date, language)}</span><span className="badge">{job.status === "completed" ? text["Done"] : job.status === "acknowledged" ? text["Accepted"] : text["Please confirm"]}</span></div><h3>{job.property_name}</h3><p className="cleaner-job-address">{job.address}</p>
         <div className="cleaner-job-window"><strong>{time(job.planned_start, language)}–{time(job.planned_end, language)}</strong><span>{duration(job.duration_minutes)} {text["cleaning"]}</span></div><p className="cleaner-job-deadline">{text["Ready by"]} {when(job.deadline_at, language)}</p>
         <div className="cleaner-job-actions">{job.can_accept ? <button type="button" disabled={busy || savingLanguage} onClick={() => void change({action: "accept", assignment_id: job.assignment_id, expected_version: job.version})}>{text["Accept assignment"]}</button> : null}{job.status !== "completed" ? <button className={job.can_accept ? "cleaner-portal-secondary" : ""} type="button" disabled={busy || savingLanguage || !job.can_complete} onClick={() => void change({action: "complete", assignment_id: job.assignment_id, expected_version: job.version})}>{text["Mark done"]}</button> : null}{job.can_punt ? <button className="cleaner-portal-text-button" type="button" disabled={busy || savingLanguage} aria-expanded={confirming === job.assignment_id} onClick={() => setConfirming(confirming === job.assignment_id ? null : job.assignment_id)}>{text["Cannot clean this house"]}</button> : null}</div>
-        {confirming === job.assignment_id ? <div className="cleaner-punt-confirmation" role="group" aria-label={`${text["Release house"]}: ${job.property_name}`}><strong>{text["Release this house?"]}</strong><p>{text["Other cleaners have two hours to take it before your manager is alerted."]}</p><div><button type="button" disabled={busy || savingLanguage} onClick={() => void change({action: "punt", assignment_id: job.assignment_id, expected_version: job.version})}>{text["Release house"]}</button><button type="button" className="cleaner-portal-secondary" disabled={busy || savingLanguage} onClick={() => setConfirming(null)}>{text["Keep assignment"]}</button></div></div> : null}
+        {confirming === job.assignment_id ? <div className="cleaner-punt-confirmation" role="group" aria-label={`${text["Release house"]}: ${job.property_name}`}><strong>{text["Release this house?"]}</strong><p>{text["Other cleaners can claim this job. Your manager is alerted if nobody takes it in time."]}</p><div><button type="button" disabled={busy || savingLanguage} onClick={() => void change({action: "punt", assignment_id: job.assignment_id, expected_version: job.version})}>{text["Release house"]}</button><button type="button" className="cleaner-portal-secondary" disabled={busy || savingLanguage} onClick={() => setConfirming(null)}>{text["Keep assignment"]}</button></div></div> : null}
       </section>)}</div>
       <div className="cleaner-portal-section-heading"><h2>{text["Available houses"]}</h2><span>{data.offers.length} {text["available"]}</span></div>
       {!data.offers.length ? <p className="cleaner-portal-quiet">{text["No houses need cover right now."]}</p> : null}

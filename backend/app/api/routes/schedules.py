@@ -36,6 +36,7 @@ from app.models import (
     ScheduleRun,
 )
 from app.services.audit import write_audit
+from app.services.cleaner_coordination import manager_release_assignment
 from app.services.eligibility import eligible_properties
 from app.services.email_addresses import normalize_email
 from app.services.field_cipher import protect_text, reveal_text
@@ -704,6 +705,31 @@ def post_publish(
             expected_version=expected,
             actor=principal.subject,
         ),
+        200,
+    )
+
+
+@router.post("/assignments/{assignment_id}/release")
+def post_release(
+    assignment_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_manager),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    clock: Clock = Depends(get_clock),
+    idempotency_key: str = Depends(require_manager_idempotency_key),
+) -> JSONResponse:
+    expected = _if_match(request)
+    return _idempotent(
+        request,
+        principal,
+        session,
+        settings,
+        clock,
+        idempotency_key,
+        f"/v1/assignments/{assignment_id}/release",
+        {"if_match": expected},
+        lambda: manager_release_assignment(session, clock, assignment_id, expected, principal.subject),
         200,
     )
 
