@@ -8,7 +8,7 @@ import { EarlyCheckout } from "./EarlyCheckout";
 import { DemoAutomation } from "./DemoAutomation";
 import { EmptyState } from "./EmptyState";
 
-export type TaskRow = { version?: number; confirmed_checkout_at?: string | null; can_confirm_early_checkout?: boolean; duration_minutes?: number | null; id: string; property_name: string; cleaner_name: string | null; planned_start: string | null; planned_end: string | null; acknowledged: boolean; status: string; pending: boolean; deadline_at: string | null; release_at: string; cleaned?: boolean; completed_at?: string | null; overdue?: boolean; assignment_status?: string | null; needs_assignment?: boolean; deadline_conflict?: boolean; travel_before_seconds?: number | null; travel_from?: string | null; travel_source?: string | null };
+export type TaskRow = { assignment_id?: string | null; assignment_version?: number | null; can_release_assignment?: boolean; cleaner_recovery?: {status: "awaiting" | "needs_review"; respond_by: string} | null; version?: number; confirmed_checkout_at?: string | null; can_confirm_early_checkout?: boolean; duration_minutes?: number | null; id: string; property_name: string; cleaner_name: string | null; planned_start: string | null; planned_end: string | null; acknowledged: boolean; status: string; pending: boolean; deadline_at: string | null; release_at: string; cleaned?: boolean; completed_at?: string | null; overdue?: boolean; assignment_status?: string | null; needs_assignment?: boolean; deadline_conflict?: boolean; travel_before_seconds?: number | null; travel_from?: string | null; travel_source?: string | null };
 const time = (value: string | null) => value ? new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "No deadline";
 const datedTime = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("en-US", {timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}).format(new Date(value)) : "Not scheduled";
 export function TaskList({ tasks }: { tasks: TaskRow[] }) {
@@ -20,6 +20,37 @@ export function TaskList({ tasks }: { tasks: TaskRow[] }) {
       <td><strong>{task.cleaner_name ?? "Unassigned"}</strong><small>{task.planned_start ? `${datedTime(task.planned_start)} to ${time(task.planned_end)}` : "Needs a feasible assignment"}</small>{task.acknowledged ? <small>Cleaner confirmed</small> : null}{task.assignment_status === "blocked" ? <strong className="deadline-alert">Assignment blocked</strong> : null}</td>
       <td><span className={`badge ${task.status === "completed" ? "" : "attention"}`}>{task.status === "completed" ? "Cleaned" : "Not yet cleaned"}</span>{task.completed_at ? <small>{datedTime(task.completed_at)}</small> : null}</td>
     </tr>)}</tbody></table></div>;
+}
+function ReleaseCleaner({task, onReleased}: {task: TaskRow; onReleased: () => void}) {
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function release() {
+    setPending(true);
+    setError("");
+    try {
+      await api(`/assignments/${task.assignment_id}/release`, {
+        method: "POST",
+        headers: {"If-Match": `"${task.assignment_version}"`, "Idempotency-Key": crypto.randomUUID()},
+      });
+      onReleased();
+    } catch (reason) {
+      setError((reason as ApiError).message);
+    } finally {
+      setPending(false);
+      setConfirming(false);
+    }
+  }
+
+  return <div className="cleaner-release-action">
+    {confirming ? <div role="group" aria-label={`Report cancellation for ${task.property_name}`}>
+      <small>Release this job so another cleaner can claim it?</small>
+      <button type="button" disabled={pending} onClick={() => void release()}>Release job</button>{" "}
+      <button type="button" disabled={pending} onClick={() => setConfirming(false)}>Keep assignment</button>
+    </div> : <button type="button" disabled={pending} onClick={() => setConfirming(true)}>Cleaner canceled</button>}
+    {error && <small role="alert">{error}</small>}
+  </div>;
 }
 function Counts({ values }: { values: Record<string, number> }) { return <div>{Object.entries(values).length ? Object.entries(values).map(([label, count]) => <p key={label}><strong>{count}</strong> {label.replaceAll("_", " ")}</p>) : <p className="muted">No activity yet</p>}</div>; }
 type Dashboard = {
@@ -103,12 +134,12 @@ export function OperationalDashboard({demo, canWrite, workspaceSignupEnabled = f
       <div className="cleaning-board-toolbar"><div className="cleaning-board-filters" role="group" aria-label="Show cleaning work">{[["open", "To clean"], ["unassigned", "Unassigned"], ["completed", "Cleaned"], ["all", "All"]].map(([value, label]) => <button type="button" aria-pressed={filter === value} className={filter === value ? "is-selected" : ""} key={value} onClick={() => setFilter(value)}>{label}</button>)}</div><label className="cleaning-board-search"><span className="visually-hidden">Find a house or cleaner</span><input type="search" placeholder="Find a house or cleaner" value={search} onChange={event => setSearch(event.target.value)} /></label></div>
       {loading ? <p className="cleaning-board-empty">Loading cleaning work…</p> : data && visible.length ? <div className="today-cleaning-table-wrap"><table className="today-cleaning-table"><thead><tr><th scope="col">House</th><th scope="col">Assigned cleaner</th><th scope="col">Clean by</th><th scope="col">Status</th></tr></thead><tbody>{visible.map(task => {
         const done = task.status === "completed";
-        const status = done ? "Cleaned" : task.assignment_status === "blocked" ? "Blocked" : task.deadline_conflict ? "Deadline conflict" : task.overdue ? "Overdue" : !task.cleaner_name ? "Unassigned" : task.acknowledged ? "Confirmed" : "Assigned";
+        const status = done ? "Cleaned" : task.assignment_status === "blocked" ? "Blocked" : task.deadline_conflict ? "Deadline conflict" : task.overdue ? "Overdue" : task.cleaner_recovery?.status === "awaiting" ? "Awaiting cover" : task.cleaner_recovery ? "Needs cover" : !task.cleaner_name ? "Unassigned" : task.acknowledged ? "Confirmed" : "Assigned";
         return <tr key={task.id} className={task.overdue ? "is-overdue" : ""}>
           <th scope="row"><strong>{task.property_name}</strong><small>Ready after {datedTime(task.release_at)}{task.duration_minutes != null ? ` · ${task.duration_minutes} min` : ""}</small>{task.confirmed_checkout_at ? <small>Guest departure confirmed</small> : task.can_confirm_early_checkout && task.version ? <EarlyCheckout taskId={task.id} version={task.version} onConfirmed={message => {setCheckoutNotice(message); setRefreshTick(value => value + 1);}} /> : null}</th>
           <td><div className={`cleaner-assignment${!task.cleaner_name ? " is-unassigned" : ""}`}><span className="cleaner-initials" aria-hidden="true">{task.cleaner_name ? task.cleaner_name.split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join("") : "—"}</span><div><strong>{task.cleaner_name ?? "Unassigned"}</strong><small>{task.planned_start ? `${datedTime(task.planned_start)} – ${time(task.planned_end)}` : "Not scheduled"}</small>{task.acknowledged && !done && status !== "Confirmed" ? <small>Cleaner confirmed</small> : null}</div></div></td>
           <td><span className={task.overdue ? "cleaning-deadline-overdue" : ""}>{task.deadline_at ? datedTime(task.deadline_at) : "Needs deadline"}</span>{task.overdue && status !== "Overdue" ? <small className="cleaning-deadline-overdue">Overdue</small> : null}{task.deadline_conflict && status !== "Deadline conflict" ? <small className="cleaning-deadline-overdue">Planned finish misses deadline</small> : null}</td>
-          <td><span className={`cleaning-task-status${done ? " is-cleaned" : task.overdue || task.deadline_conflict || task.assignment_status === "blocked" ? " needs-review" : !task.cleaner_name ? " is-unassigned" : ""}${status === "Overdue" ? " is-overdue" : ""}`}>{status}</span>{task.completed_at ? <small>{datedTime(task.completed_at)}</small> : null}</td>
+          <td><span className={`cleaning-task-status${done ? " is-cleaned" : task.overdue || task.deadline_conflict || task.assignment_status === "blocked" ? " needs-review" : !task.cleaner_name ? " is-unassigned" : ""}${status === "Overdue" ? " is-overdue" : ""}`}>{status}</span>{task.completed_at ? <small>{datedTime(task.completed_at)}</small> : null}{task.cleaner_recovery?.status === "awaiting" && <small>Respond by {datedTime(task.cleaner_recovery.respond_by)}</small>}{task.can_release_assignment && task.assignment_id && task.assignment_version && <ReleaseCleaner key={`${task.assignment_id}:${task.assignment_version}`} task={task} onReleased={() => {setCheckoutNotice("Assignment released. Coverage will update here."); setRefreshTick(value => value + 1);}} />}</td>
         </tr>;
       })}</tbody></table></div> : data ? <EmptyState variant="dashboard" title={rows.length && filter === "open" && !query && !open.length ? "All cleaning is done" : rows.length ? "No matching cleans" : "No cleaning work on this date"} description={rows.length && filter === "open" && !query && !open.length ? "Open Cleaned to review finished work." : rows.length ? "Try another filter or search." : "Imported cleaning work will appear here."} /> : null}
       <div className="cleaning-board-footer"><span>{data ? `${visible.length} cleans${isToday && data.overdue?.length ? " · includes overdue work" : ""}` : ""}</span>{data?.mode === "hospitable_read_only" ? <Link href="/cleaners">Manage cleaners →</Link> : canWrite ? <Link href="/schedules">Review assignments →</Link> : <Link href="/setup">Setup →</Link>}</div>

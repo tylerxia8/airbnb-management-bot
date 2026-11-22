@@ -95,6 +95,7 @@ def create_app(settings: Settings, clock: Clock | None = None) -> FastAPI:
                 and (
                     path in {"/v1/schedules/previews", "/v1/local-scheduling/policy"}
                     or re.fullmatch(r"/v1/schedules/runs/[0-9a-f-]{36}/publish", path) is not None
+                    or re.fullmatch(r"/v1/assignments/[0-9a-f-]{36}/release", path) is not None
                 )
             )
             cleaning_time = (

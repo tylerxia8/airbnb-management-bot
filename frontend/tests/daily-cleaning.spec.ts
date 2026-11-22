@@ -29,3 +29,27 @@ test("daily board shows deadlines, cleaner responsibility and explicit cleaning 
   await expect(todaySection.getByRole("rowheader", {name: /Fictional Charlotte house A/})).toBeVisible();
   await expect(todaySection.getByRole("rowheader", {name: "Fictional Charlotte house B"})).toHaveCount(0);
 });
+
+test("manager reports a cleaner cancellation and sees the open coverage offer", async ({page}) => {
+  const job = {id: "cleaning", property_name: "Fictional Charlotte house", release_at: "2026-11-11T15:00:00Z", deadline_at: "2026-11-11T20:00:00Z"};
+  let released = false;
+  await page.route("**/api/dashboard*", route => route.fulfill({json: {
+    service_date: "2026-11-11", business_date: "2026-11-11", mode: "mock",
+    today: [released ? {...job, status: "ready", cleaner_name: null,
+      cleaner_recovery: {status: "awaiting", respond_by: "2026-11-11T16:00:00Z"}} :
+      {...job, status: "assigned", cleaner_name: "Alex Demo", can_release_assignment: true, assignment_id: "assignment", assignment_version: 4}],
+    exceptions: [], availability: {}, assignment_counts: {}, ack_counts: {acknowledged: 0, awaiting: 0}, sync_health: {}, sms_delivery_counts: {},
+  }}));
+  await page.route("**/api/assignments/assignment/release", async route => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().headers()["if-match"]).toBe('"4"');
+    expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+    released = true;
+    await route.fulfill({json: {status: "punted"}});
+  });
+  await page.goto("/dashboard");
+  await page.getByRole("button", {name: "Cleaner canceled"}).click();
+  await page.getByRole("button", {name: "Release job"}).click();
+  await expect(page.getByText("Awaiting cover", {exact: true})).toBeVisible();
+  await expect(page.getByRole("button", {name: "Cleaner canceled"})).toHaveCount(0);
+});
