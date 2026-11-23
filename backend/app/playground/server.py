@@ -66,13 +66,19 @@ class ScheduleEdit(Operation):
     day: Day
 
 
+class RecoveryEdit(Operation):
+    action: Literal["cleaner_cancel", "replacement_accept", "replacement_decline"]
+    day: Day
+    id: str
+
+
 class Reset(Operation):
     action: Literal["reset"]
 
 
 mutation = TypeAdapter(
     Annotated[
-        PropertyEdit | AvailabilityEdit | ReservationEdit | AssignmentEdit | ScheduleEdit | Reset,
+        PropertyEdit | AvailabilityEdit | ReservationEdit | AssignmentEdit | ScheduleEdit | RecoveryEdit | Reset,
         Field(discriminator="action"),
     ]
 )
@@ -82,12 +88,17 @@ def invalidate(state: dict[str, Any], days: tuple[str, ...] = DAYS) -> None:
     for day in days:
         schedule = state["days"][day]
         schedule["preview"] = None
+        schedule.pop("recovery", None)
         schedule["stale"] = schedule["published"] is not None
 
 
 def apply(state: dict[str, Any], op: Operation) -> dict[str, Any]:
     if isinstance(op, Reset):
         return seed()
+    if isinstance(op, PropertyEdit | AvailabilityEdit | ReservationEdit | AssignmentEdit):
+        affected = (op.day,) if isinstance(op, AvailabilityEdit | AssignmentEdit) else DAYS
+        if any(state["days"][day].get("recovery", {}).get("status") == "awaiting" for day in affected):
+            raise HTTPException(409, "Accept or decline the simulated replacement first.")
     if isinstance(op, PropertyEdit):
         row = find(state["properties"], op.id)
         row.update(name=op.name.strip(), duration=op.duration)
@@ -114,8 +125,12 @@ def apply(state: dict[str, Any], op: Operation) -> dict[str, Any]:
             schedule["pins"][op.id] = op.cleaner_id
         invalidate(state, (op.day,))
         schedule["preview"] = plan(state, op.day)
+    elif isinstance(op, RecoveryEdit):
+        recover(state, op)
     elif isinstance(op, ScheduleEdit):
         schedule = state["days"][op.day]
+        if schedule.get("recovery", {}).get("status") == "awaiting":
+            raise HTTPException(409, "Accept or decline the simulated replacement first.")
         if op.action == "generate":
             schedule["preview"] = plan(state, op.day)
         else:
@@ -126,6 +141,71 @@ def apply(state: dict[str, Any], op: Operation) -> dict[str, Any]:
                 raise HTTPException(409, "Resolve conflicting manual assignments before publishing.")
             schedule.update(published=preview, preview=None, stale=False)
     return state
+
+
+def recover(state: dict[str, Any], op: RecoveryEdit) -> None:
+    schedule = state["days"][op.day]
+    published = schedule["published"]
+    recovery = schedule.get("recovery", {})
+    pending = recovery.get("status") == "awaiting"
+    if op.action == "cleaner_cancel":
+        if not published or schedule["stale"] or schedule["preview"] or pending:
+            raise HTTPException(409, "Publish a current simulation before canceling an assignment.")
+    elif not pending or recovery["job"] != op.id:
+        raise HTTPException(409, "There is no replacement awaiting a response.")
+
+    row = find(published["rows"], op.id)
+    exclusions = schedule.setdefault("canceled_cleaners", {}).setdefault(op.id, [])
+    if op.action == "replacement_accept":
+        row.update(recovery["replacement"], acknowledged=True)
+        update_travel(published, recovery.pop("route"))
+        published["conflicts"] = [item for item in published["conflicts"] if item["job"] != op.id]
+        recovery["status"] = "accepted"
+        return
+
+    if op.action == "cleaner_cancel":
+        if not row["cleaner_name"]:
+            raise HTTPException(409, "This job has no cleaner to cancel.")
+        cleaner_ids = {cleaner["name"]: cleaner["id"] for cleaner in state["cleaners"]}
+        exclusions.append(row.get("cleaner_id") or cleaner_ids[row["cleaner_name"]])
+        recovery = {"job": op.id, "property": row["property_name"], "original": row["cleaner_name"]}
+        schedule["recovery"] = recovery
+        row.update(
+            cleaner_id=None,
+            cleaner_name=None,
+            planned_start=None,
+            planned_end=None,
+            travel_before_seconds=None,
+            travel_from=None,
+            acknowledged=False,
+        )
+        published["conflicts"].append({"job": op.id, "code": "CLEANER_CANCELED"})
+        # The cancellation overrides the pin for this job only.
+        schedule["pins"].pop(op.id, None)
+    else:
+        exclusions.append(recovery["replacement"]["cleaner_id"])
+
+    cleaner_ids = {cleaner["name"]: cleaner["id"] for cleaner in state["cleaners"]}
+    fixed = {
+        item["id"]: {**item, "cleaner_id": item.get("cleaner_id") or cleaner_ids[item["cleaner_name"]]}
+        for item in published["rows"]
+        if item["cleaner_name"] and item["id"] != op.id
+    }
+    update_travel(published, plan(state, op.day, fixed=fixed)["rows"])
+    proposed = plan(state, op.day, fixed=fixed, target=op.id)["rows"]
+    candidate = find(proposed, op.id)
+    recovery.update(
+        replacement=candidate if candidate["cleaner_id"] else None,
+        route=proposed if candidate["cleaner_id"] else [],
+        status="awaiting" if candidate["cleaner_id"] else "uncovered",
+    )
+
+
+def update_travel(published: dict[str, Any], route: list[dict[str, Any]]) -> None:
+    by_id = {row["id"]: row for row in route if row["cleaner_id"]}
+    for row in published["rows"]:
+        if row["id"] in by_id:
+            row["travel_before_seconds"] = by_id[row["id"]]["travel_before_seconds"]
 
 
 def find(rows: list[dict[str, Any]], identifier: str) -> dict[str, Any]:

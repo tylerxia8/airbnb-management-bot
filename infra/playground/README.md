@@ -4,6 +4,8 @@ Visitors use the existing manager cleaning table and scheduling engine with a fi
 
 The staging build serves the Playground and its static assets. Its isolated backend uses the same mock reservation normalization and scheduling feasibility checks as the application, but runs with its own SQLite volume and a private network without outbound access. It has no operational routers or dispatch workers. Maintenance and guest messaging are future features. Sandbox sessions expire one hour after creation. Reset restores the scenario for the current visitor and keeps that session’s original expiration. Creation is capped per network peer and globally. Resume and mutation limits apply per session and globally. Deploy one API instance per SQLite volume.
 
+After publishing a simulation, select a job under **Cleaner cancellation**. The canceled assignment stays open while a replacement is offered. Simulate acceptance to confirm the new assignment or decline to try the next feasible cleaner. Other published times stay fixed. If no cleaner can cover the job, it stays open for the manager.
+
 ## Verification
 
 Run the dedicated checks before deploying the tested commit.
